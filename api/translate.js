@@ -1,3 +1,19 @@
+function decodeHtml(s){
+  return String(s||'')
+    .replace(/&#39;|&apos;/gi,"'")
+    .replace(/&quot;/gi,'"')
+    .replace(/&amp;/gi,'&')
+    .replace(/&lt;/gi,'<')
+    .replace(/&gt;/gi,'>')
+    .replace(/&#(\d+);/g,(_,n)=>String.fromCodePoint(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi,(_,n)=>String.fromCodePoint(parseInt(n,16)));
+}
+function normalizeUzbek(s){
+  return decodeHtml(s)
+    .replace(/\bg'/gi,m=>m[0]+ "‘")
+    .replace(/\bo'/gi,m=>m[0]+ "‘");
+}
+
 export default async function handler(req, res) {
   const origin = req.headers.origin || '';
   const allowed = ['https://uzcustomer.github.io','https://reading-reader.vercel.app'];
@@ -16,7 +32,7 @@ export default async function handler(req, res) {
     const r=await fetch(url,{headers:{'user-agent':'ReadingReader/1.5'}});
     if(!r.ok) throw new Error('translate '+r.status);
     const d=await r.json();
-    return d && d.responseData ? String(d.responseData.translatedText||'') : '';
+    return d && d.responseData ? decodeHtml(String(d.responseData.translatedText||'')) : '';
   }
 
   if(mode === 'ai'){
@@ -61,7 +77,7 @@ Do not translate the whole sentence unless needed to explain the word. Prefer th
         context,
         en:String(out.en||''),
         ru:String(out.ru||''),
-        uz:String(out.uz||''),
+        uz:normalizeUzbek(String(out.uz||'')),
         note:String(out.note||'')
       });
     }catch(e){
@@ -74,10 +90,10 @@ Do not translate the whole sentence unless needed to explain the word. Prefer th
     if(context) jobs.push(translate(context,'en|ru'),translate(context,'en|uz'));
     const out=await Promise.all(jobs);
     return res.status(200).json({
-      term:q,en:'',ru:out[0]||'',uz:out[1]||'',
+      term:q,en:'',ru:decodeHtml(out[0]||''),uz:normalizeUzbek(out[1]||''),
       context,
-      contextRu:context?(out[2]||''):'',
-      contextUz:context?(out[3]||''):''
+      contextRu:context?decodeHtml(out[2]||''):'',
+      contextUz:context?normalizeUzbek(out[3]||''):''
     });
   }catch(e){
     return res.status(502).json({error:'Translation service unavailable'});
