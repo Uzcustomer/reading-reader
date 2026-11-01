@@ -1,5 +1,3 @@
 {
-  "functions": {
-    "api/ielts.js": {}
-  }
+  "$schema": "https://openapi.vercel.sh/vercel.json"
 }
