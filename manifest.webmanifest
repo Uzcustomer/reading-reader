@@ -1,0 +1,10 @@
+{
+  "name": "Reading Reader",
+  "short_name": "Reader",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f2e9",
+  "theme_color": "#111827",
+  "description": "Private local reading and vocabulary trainer"
+}
