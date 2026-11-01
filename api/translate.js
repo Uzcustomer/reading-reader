@@ -55,30 +55,41 @@ Return STRICT JSON only:
 
 Do not translate the whole sentence unless needed to explain the word. Prefer the contextual sense over the most common dictionary sense.`;
 
-      const url='https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key='+encodeURIComponent(process.env.GEMINI_API_KEY);
-      const r=await fetch(url,{
-        method:'POST',
-        headers:{'content-type':'application/json'},
-        body:JSON.stringify({
-          contents:[{role:'user',parts:[{text:prompt}]}],
-          generationConfig:{responseMimeType:'application/json',temperature:0.2,maxOutputTokens:700}
-        })
-      });
-      if(!r.ok){
-        const err=await r.text();
-        return res.status(502).json({error:'Gemini translation failed',detail:err.slice(0,500)});
+      const models=['gemini-3.5-flash-lite','gemini-3.6-flash','gemini-3.8-flash'];
+      let out=null,lastError='';
+      for(const model of models){
+        try{
+          const url='https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+encodeURIComponent(process.env.GEMINI_API_KEY);
+          const r=await fetch(url,{
+            method:'POST',
+            headers:{'content-type':'application/json'},
+            body:JSON.stringify({
+              contents:[{role:'user',parts:[{text:prompt}]}],
+              generationConfig:{responseMimeType:'application/json',temperature:0.15,maxOutputTokens:700}
+            })
+          });
+          if(!r.ok){
+            lastError=model+' '+r.status+' '+(await r.text()).slice(0,300);
+            continue;
+          }
+          const d=await r.json();
+          const txt=d?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('').trim()||'';
+          if(!txt){lastError=model+' empty response';continue}
+          out=JSON.parse(txt);
+          out._model=model;
+          break;
+        }catch(err){
+          lastError=model+' '+String(err?.message||err);
+        }
       }
-      const d=await r.json();
-      const txt=d?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('').trim()||'';
-      if(!txt) return res.status(502).json({error:'Empty AI translation response'});
-      const out=JSON.parse(txt);
+      if(!out) return res.status(502).json({error:'Gemini translation failed',detail:lastError});
       return res.status(200).json({
         term:q,
         context,
         en:String(out.en||''),
         ru:String(out.ru||''),
         uz:normalizeUzbek(String(out.uz||'')),
-        note:String(out.note||'')
+        note:String(out.note||''),model:String(out._model||'')
       });
     }catch(e){
       return res.status(502).json({error:'AI translation unavailable',detail:String(e.message||e)});
