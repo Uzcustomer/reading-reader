@@ -29,9 +29,6 @@ export default async function handler(req) {
   try {
     const body = await req.json();
     const article = body?.article || {};
-    const band = ['6.5','7.0','7.5','8.0'].includes(String(body?.band))
-      ? String(body.band)
-      : '7.0';
     const count = body?.count === 10 ? 10 : 13;
     const vocab = Array.isArray(body?.vocabulary) ? body.vocabulary.slice(-30) : [];
 
@@ -45,7 +42,7 @@ Use ONLY the supplied article as the factual source. Do not add outside facts.
 
 Adapt the source into one coherent academic reading passage of about 700-900 words when the source length permits. Preserve factual meaning while improving cohesion and academic readability.
 
-Target difficulty: IELTS Band ${band}. Use paraphrase, lexical variation, reference chains, inference, distractors and question wording appropriate to that band.
+Use authentic IELTS Academic Reading difficulty: strong paraphrase, lexical variation, reference chains, inference and plausible distractors. Do not simplify the passage to a preselected band.
 
 Create exactly ${count} questions using 3-4 IELTS-style task types selected from:
 - matching_headings
@@ -135,7 +132,7 @@ Return JSON only with this structure:
       throw new Error('Gemini returned invalid test structure');
     }
 
-    out.band = String(out.band || band);
+    out.band = String(out.band || '');
     out.sourceTitle = out.sourceTitle || article.title || '';
 
     return new Response(JSON.stringify(out), { status: 200, headers });
