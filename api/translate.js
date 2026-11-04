@@ -55,34 +55,39 @@ Return STRICT JSON only:
 
 Do not translate the whole sentence unless needed to explain the word. Prefer the contextual sense over the most common dictionary sense.`;
 
-      const models=['gemini-3.5-flash-lite','gemini-3.6-flash','gemini-3.8-flash'];
+      const models=['gemini-3.5-flash-lite','gemini-3.6-flash'];
       let out=null,lastError='';
-      for(const model of models){
-        try{
-          const url='https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+encodeURIComponent(process.env.GEMINI_API_KEY);
-          const r=await fetch(url,{
-            method:'POST',
-            headers:{'content-type':'application/json'},
-            body:JSON.stringify({
-              contents:[{role:'user',parts:[{text:prompt}]}],
-              generationConfig:{responseMimeType:'application/json',temperature:0.15,maxOutputTokens:700}
-            })
-          });
-          if(!r.ok){
-            lastError=model+' '+r.status+' '+(await r.text()).slice(0,300);
-            continue;
-          }
-          const d=await r.json();
-          const txt=d?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('').trim()||'';
-          if(!txt){lastError=model+' empty response';continue}
-          out=JSON.parse(txt);
-          out._model=model;
-          break;
-        }catch(err){
-          lastError=model+' '+String(err?.message||err);
+      outer: for(const model of models){
+        for(let attempt=1;attempt<=3;attempt++){
+          try{
+            const url='https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+encodeURIComponent(process.env.GEMINI_API_KEY);
+            const r=await fetch(url,{
+              method:'POST',
+              headers:{'content-type':'application/json'},
+              body:JSON.stringify({
+                contents:[{role:'user',parts:[{text:prompt}]}],
+                generationConfig:{responseMimeType:'application/json',temperature:0.15,maxOutputTokens:700}
+              })
+            });
+            if(!r.ok){
+              const body=await r.text();
+              lastError=model+' '+r.status+' '+body.slice(0,240);
+              if((r.status===429||r.status===503)&&attempt<3){await new Promise(x=>setTimeout(x,350*attempt));continue}
+              break;
+            }
+            const d=await r.json();
+            const txt=d?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('').trim()||'';
+            if(!txt){lastError=model+' empty response';break}
+            out=JSON.parse(txt);out._model=model;break outer;
+          }catch(err){lastError=model+' '+String(err?.message||err);if(attempt<3){await new Promise(x=>setTimeout(x,350*attempt));continue}break}
         }
       }
-      if(!out) return res.status(502).json({error:'Gemini translation failed',detail:lastError});
+      if(!out){
+        try{
+          const [ru,uz]=await Promise.all([translate(context,'en|ru'),translate(context,'en|uz')]);
+          return res.status(200).json({term:q,context,en:'',ru:'',uz:'',note:'AI temporarily unavailable. Showing full-context internet translation instead.',contextRu:decodeHtml(ru||''),contextUz:normalizeUzbek(uz||''),fallback:true});
+        }catch(_e){return res.status(503).json({error:'AI translation temporarily unavailable',detail:'Gemini is busy. Please try again shortly.'})}
+      }
       return res.status(200).json({
         term:q,
         context,
