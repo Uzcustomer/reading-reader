@@ -1,9 +1,10 @@
 export default async function handler(req,res){
   const origin=req.headers.origin||'';
-  const allowed=origin==='https://reading-reader.vercel.app'||origin==='https://uzcustomer.github.io'||origin.endsWith('.vercel.app');
+  const allowed=!origin||origin==='https://reading-reader.vercel.app'||origin==='https://uzcustomer.github.io'||origin.endsWith('.vercel.app');
   res.setHeader('Access-Control-Allow-Origin',allowed?origin:'https://reading-reader.vercel.app');
   res.setHeader('Access-Control-Allow-Methods','POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers','content-type');
+  res.setHeader('Cache-Control','no-store');
   if(req.method==='OPTIONS')return res.status(204).end();
   if(req.method!=='POST')return res.status(405).json({error:'POST only'});
   if(!process.env.GEMINI_API_KEY)return res.status(500).json({error:'GEMINI_API_KEY is not configured'});
@@ -12,7 +13,7 @@ export default async function handler(req,res){
     const source=String(req.body?.source||'').slice(0,300);
     const text=String(req.body?.text||'');
     if(text.length<100)return res.status(400).json({error:'Article text is too short'});
-    if(text.length>60000)return res.status(400).json({error:'Article text is too long'});
+    if(text.length>45000)return res.status(413).json({error:'Article text is too long for one request'});
 
     const prompt=`Translate the following English article into natural, accurate Uzbek (Latin script) for an educated reader.
 
