@@ -14,15 +14,16 @@ export default async function handler(req,res){
     if(text.length<100)return res.status(400).json({error:'Article text is too short'});
     if(text.length>60000)return res.status(400).json({error:'Article text is too long'});
 
-    const prompt=`Translate the following English article into natural, accurate Russian for an educated reader.
+    const prompt=`Translate the following English article into natural, accurate Uzbek (Latin script) for an educated reader.
 
 Requirements:
 - Preserve the full meaning and all factual details.
 - Do not summarise, omit, add, fact-check or rewrite the argument.
 - Preserve paragraph breaks.
 - Keep proper names, organisations and technical terms accurate.
-- Render idioms naturally in Russian while preserving tone.
-- Output only the Russian translation, no commentary, no markdown labels.
+- Use modern literary Uzbek in Latin script, including correct o‘ and g‘ characters where appropriate.
+- Render idioms naturally in Uzbek while preserving tone.
+- Output only the Uzbek translation, no commentary, no markdown labels.
 
 TITLE: ${title}
 SOURCE: ${source}
