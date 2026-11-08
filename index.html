@@ -18,7 +18,7 @@ q('#importPack').onclick=async function(){
     var p=JSON.parse(await f.text());
     if(p.format!=='reading-reader-pack-v1'||!Array.isArray(p.articles))throw new Error('Unsupported pack');
     var a=g(AKEY,[]), byId={};a.forEach(function(x){byId[x.id]=x});
-    p.articles.forEach(function(x){var old=byId[x.id]||{};byId[x.id]={id:x.id||Date.now().toString(36),title:x.title||'Untitled',source:x.source||'',text:x.text||'',read:old.read||false,interest:old.interest||null,highlights:old.highlights||[]}});
+    p.articles.forEach(function(x){var old=byId[x.id]||{};byId[x.id]={id:x.id||Date.now().toString(36),title:x.title||'Untitled',source:x.source||'',text:x.text||'',bilingual_paragraphs:Array.isArray(x.bilingual_paragraphs)?x.bilingual_paragraphs:(old.bilingual_paragraphs||[]),read:old.read||false,interest:old.interest||null,highlights:old.highlights||[]}});
     s(AKEY,Object.values(byId));
     if(Array.isArray(p.vocabulary)){var v=g(VKEY,[]),seen={};v.forEach(function(x){seen[String(x.term).toLowerCase()]=x});p.vocabulary.forEach(function(x){var k=String(x.term||'').toLowerCase();if(k&&!seen[k]){x.userAdded=!!x.userAdded;v.push(x);seen[k]=x}});s(VKEY,v)}
     renderArticles();renderVocab();alert('Imported '+p.articles.length+' article(s) from '+(p.name||'pack'));
@@ -70,7 +70,7 @@ function openArticle(id){
   if(!Array.isArray(cur.highlights))cur.highlights=[];
   q('#rTitle').textContent=x.title;q('#rSource').textContent=x.source||'';
   var pp=articleParagraphs(x);
-  q('#rBody').innerHTML=pp.map(function(p,i){return '<p data-pidx="'+i+'">'+renderHighlightedParagraph(p,x.highlights,i)+'</p>'}).join('');
+  var bi=Array.isArray(x.bilingual_paragraphs)?x.bilingual_paragraphs.filter(function(p){return p&&p.en&&p.uz}):[];q('#rBody').innerHTML=bi.length?bi.map(function(p,i){return '<div class="bilingual-pair"><p data-pidx="'+i+'">'+renderHighlightedParagraph(p.en,x.highlights,i)+'</p><p class="uz-translation" lang="uz" style="display:none;color:#42536b;background:#f0f5fb;border-left:3px solid #478cda;padding:12px;line-height:1.7">'+E(p.uz)+'</p></div>'}).join(''):pp.map(function(p,i){return '<p data-pidx="'+i+'">'+renderHighlightedParagraph(p,x.highlights,i)+'</p>'}).join('');q('#articleRuBox').style.display='none';q('#translateArticleRu').textContent=bi.length?'Show translation':'AI Translate to Uzbek';q('#translateArticleRu').disabled=false;
   q('#reader').style.display='block';q('#empty').style.display='none';
   q('#readBtn').textContent=x.read?'✓ Read':'✓ Mark read';
   q('#likeBtn').classList.toggle('primary',x.interest==='like');q('#dislikeBtn').classList.toggle('primary',x.interest==='dislike');show('reading')
@@ -157,6 +157,9 @@ q('#selHighlight').onclick=function(){
   saveCur();hideSelbar();if(window.getSelection)window.getSelection().removeAllRanges();openArticle(cur.id)
 };q('#translateArticleRu').onclick=async function(){
   if(!cur)return;
+  var bi=Array.isArray(cur.bilingual_paragraphs)?cur.bilingual_paragraphs:[];
+  if(bi.some(function(p){return p&&p.en&&p.uz})){var items=qa('#rBody .uz-translation');var visible=items.some(function(n){return n.style.display!=='none'});items.forEach(function(n){n.style.display=visible?'none':'block'});q('#translateArticleRu').textContent=visible?'Show translation':'Hide translation';return;}
+  if(q('#articleRuText').textContent.trim()){var bx=q('#articleRuBox'),isOpen=bx.style.display!=='none';bx.style.display=isOpen?'none':'block';q('#translateArticleRu').textContent=isOpen?'Show translation':'Hide translation';return;}
   var box=q('#articleRuBox'),st=q('#articleRuState'),out=q('#articleRuText');
   box.style.display='block';st.textContent='AI is translating the article…';out.textContent='';q('#translateArticleRu').disabled=true;
   try{
@@ -164,11 +167,11 @@ q('#selHighlight').onclick=function(){
     var d={};try{d=await r.json()}catch(e){}
     if(!r.ok)throw new Error(d.detail||d.error||('Server '+r.status));
     st.textContent=d.model?'Translated with '+d.model:'Translation ready';
-    out.textContent=d.translation||'';
+    out.textContent=d.translation||'';q('#translateArticleRu').textContent='Hide translation';
   }catch(e){st.textContent='Translation unavailable: '+(e&&e.message?e.message:'Network request failed')+'. Please check internet and try again.'}
   q('#translateArticleRu').disabled=false;
 };
-q('#hideArticleRu').onclick=function(){q('#articleRuBox').style.display='none'};
+q('#hideArticleRu').onclick=function(){q('#articleRuBox').style.display='none';q('#translateArticleRu').textContent='Show translation'};
 q('#repairArticle').onclick=async function(){
   if(!cur)return;
   var st=q('#repairState');st.textContent='AI is repairing PDF extraction…';
