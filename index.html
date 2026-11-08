@@ -18,7 +18,7 @@ q('#importPack').onclick=async function(){
     var p=JSON.parse(await f.text());
     if(p.format!=='reading-reader-pack-v1'||!Array.isArray(p.articles))throw new Error('Unsupported pack');
     var a=g(AKEY,[]), byId={};a.forEach(function(x){byId[x.id]=x});
-    p.articles.forEach(function(x){var old=byId[x.id]||{};byId[x.id]={id:x.id||Date.now().toString(36),title:x.title||'Untitled',source:x.source||'',text:x.text||'',bilingual_paragraphs:Array.isArray(x.bilingual_paragraphs)?x.bilingual_paragraphs:(old.bilingual_paragraphs||[]),read:old.read||false,interest:old.interest||null,highlights:old.highlights||[]}});
+    p.articles.forEach(function(x){var old=byId[x.id]||{};byId[x.id]={id:x.id||Date.now().toString(36),title:x.title||'Untitled',source:x.source||'',text:x.text||'',bilingual_paragraphs:Array.isArray(x.bilingual_paragraphs)&&x.bilingual_paragraphs.length?x.bilingual_paragraphs:(old.bilingual_paragraphs||[]),read:old.read||false,interest:old.interest||null,highlights:old.highlights||[]}});
     s(AKEY,Object.values(byId));
     if(Array.isArray(p.vocabulary)){var v=g(VKEY,[]),seen={};v.forEach(function(x){seen[String(x.term).toLowerCase()]=x});p.vocabulary.forEach(function(x){var k=String(x.term||'').toLowerCase();if(k&&!seen[k]){x.userAdded=!!x.userAdded;v.push(x);seen[k]=x}});s(VKEY,v)}
     renderArticles();renderVocab();alert('Imported '+p.articles.length+' article(s) from '+(p.name||'pack'));
@@ -35,8 +35,10 @@ q('#translateAllPack').onclick=async function(){
   if(!article||!article.text)continue;
   var paragraphs=articleParagraphs(article);
   if(article.bilingual_paragraphs&&article.bilingual_paragraphs.length&&article.bilingual_paragraphs.every(function(p){return p.en&&p.uz})){finished++;status.textContent='Already translated '+finished+' / '+ids.length;continue}
-  var translated=[],error=null;
-  for(var offset=0;offset<paragraphs.length;offset+=5){
+  var translated=Array.isArray(article.bilingual_paragraphs)?article.bilingual_paragraphs.filter(function(p,i){return p&&p.en===paragraphs[i]&&p.uz}):[];
+  if(translated.length!==article.bilingual_paragraphs.length)translated=[];
+  var error=null;
+  for(var offset=translated.length;offset<paragraphs.length;offset+=5){
    var slice=paragraphs.slice(offset,offset+5);
    status.textContent='Article '+(k+1)+' / '+ids.length+': '+article.title+' · paragraphs '+(offset+1)+'–'+Math.min(offset+5,paragraphs.length)+' / '+paragraphs.length;
    try{
